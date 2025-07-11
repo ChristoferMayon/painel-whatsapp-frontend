@@ -603,15 +603,15 @@ function toggleButtonFields(cardId, buttonIndex) {
     const buttonType = buttonTypeSelect.value;
 
     if (buttonUrlField) buttonUrlField.classList.add('hidden');
-    if (buttonPhoneField) buttonPhoneField.classList.add('hidden');
+    if (buttonPhoneField) phoneField.classList.add('hidden');
 
     if (buttonType === 'URL') {
-        if (buttonUrlField) buttonUrlField.classList.remove('hidden');
+        if (buttonUrlField) urlField.classList.remove('hidden');
         if (buttonLabelInput && buttonLabelInput.value === "") {
             buttonLabelInput.value = "Obter localização";
         }
     } else if (buttonType === 'CALL') {
-        if (buttonPhoneField) buttonPhoneField.classList.remove('hidden');
+        if (phoneField) phoneField.classList.remove('hidden');
         if (buttonLabelInput && buttonLabelInput.value === "") {
             buttonLabelInput.value = "Ligar";
         }
@@ -643,15 +643,13 @@ async function enviarCarrossel() {
     // ADIÇÃO CRÍTICA: REMOVER QUALQUER '+' INICIAL DO NÚMERO COMPLETO
     numeroCompleto = numeroCompleto.replace(/^\+/, ''); 
 
-    // O frontend não precisa enviar 'mensagemGeral' ou 'delayMessage' para o proxy
-    // se o proxy já não as usa para o endpoint de carrossel da Z-API.
-    // O backend já tem a responsabilidade de montar o payload exato para a Z-API.
-    // Removendo-os daqui, evitamos enviar dados desnecessários.
-    // const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
-    // const delayMessage = document.getElementById('delayMessage').value.trim();
+    // --- AQUI ESTÁ A CORREÇÃO: DESCOMENTAR ESTAS LINHAS ---
+    const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
+    const delayMessage = document.getElementById('delayMessage').value.trim();
+    // --- FIM DA CORREÇÃO ---
 
-    if (!rawNumero || !selectedDDI) { // A validação de mensagemGeral pode ser removida se ela não for enviada
-        log.innerText = '❌ Por favor, preencha o DDI do país e o número do cliente.';
+    if (!rawNumero || !selectedDDI || !mensagemGeral) { // Validação agora inclui mensagemGeral
+        log.innerText = '❌ Por favor, preencha o DDI do país, o número do cliente e a mensagem geral.';
         return;
     }
 
@@ -719,25 +717,25 @@ async function enviarCarrossel() {
         });
     }
 
-    // O payload enviado do frontend para o PROXY (seu server.js)
-    // Agora ele só inclui o 'phone' e o 'carousel' (seus cartões).
-    // O 'server.js' faz o remapeamento para 'elements' e adiciona tokens na URL.
     const payloadToProxy = {
         phone: numeroCompleto,
-        carousel: carouselCards // 'carouselCards' é o array de cartões do frontend
+        message: mensagemGeral, // AGORA INCLUÍDO NO PAYLOAD
+        carousel: carouselCards,
+        ...(delayMessage && { delayMessage: parseInt(delayMessage) }) // AGORA INCLUÍDO NO PAYLOAD
     };
-// --- ADIÇÃO DE LOG NO FRONTEND ---
+
+    // --- ADIÇÃO DE LOG NO FRONTEND ---
     console.log("Payload enviado do frontend para o proxy:", JSON.stringify(payloadToProxy, null, 2));
     // --- FIM DA ADIÇÃO DE LOG ---
+
     try {
         log.innerText = 'Enviando carrossel...';
-        // A requisição é enviada para o seu próprio proxy (proxyCarouselUrl)
         const response = await fetch(proxyCarouselUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payloadToProxy) // Envia o payload simplificado para o proxy
+            body: JSON.stringify(payloadToProxy)
         });
 
         const data = await response.json();
@@ -763,7 +761,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mensagemGeralInput.setAttribute('readonly', 'true'); 
     }
 
-    // Inicializa com um cartão vazio (ou padrão)
     addCarouselCard(); 
     
     const countryDDISelect = document.getElementById("countryDDI");
