@@ -23,7 +23,9 @@ app.use(express.static(path.join(__dirname, '..')));
 // Endpoint para enviar mensagens de carrossel via Z-API
 app.post('/send-carousel-message', async (req, res) => {
     const { phone, message, carousel, delayMessage } = req.body;
-
+// --- ADIÇÃO DE LOG 1 NO BACKEND (Payload Recebido) ---
+    console.log("Payload recebido do frontend:", JSON.stringify(req.body, null, 2));
+    // --- FIM DA ADIÇÃO DE LOG 1 ---
     const ZAPI_TOKEN = process.env.ZAPI_TOKEN; // O token da instância
     const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN; // O Client-Token da conta
     const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
@@ -68,7 +70,9 @@ app.post('/send-carousel-message', async (req, res) => {
         // verifique outros endpoints ou formas de fazer isso com a Z-API.
         // Por enquanto, removemos message e delayMessage do payload para este endpoint específico.
     };
-    
+     // --- ADIÇÃO DE LOG 2 NO BACKEND (Payload para Z-API) ---
+    console.log("Payload enviado para a Z-API:", JSON.stringify(zapiPayload, null, 2));
+    // --- FIM DA ADIÇÃO DE LOG 2 ---
     // ATENÇÃO: Ajustar a URL para incluir o token da instância diretamente na URL,
     // conforme a documentação da Z-API.
     const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-carousel`; 
@@ -80,6 +84,9 @@ app.post('/send-carousel-message', async (req, res) => {
                 'Content-Type': 'application/json'
             }
         });
+        // --- ADIÇÃO DE LOG 3 NO BACKEND (Resposta da Z-API) ---
+        console.log("Resposta recebida da Z-API (sucesso):", JSON.stringify(response.data, null, 2));
+        // --- FIM DA ADIÇÃO DE LOG 3 ---
         res.json(response.data);
     } catch (error) {
         console.error('Erro ao enviar mensagem via Z-API:', error.response ? error.response.data : error.message);
