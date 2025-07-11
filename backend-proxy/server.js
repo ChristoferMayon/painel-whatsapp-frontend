@@ -1,29 +1,28 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
-const path = require('path');
+const axios = require('axios'); // Usando axios para consistência
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware para habilitar CORS (permite que seu frontend se comunique com o backend)
+// Middleware para habilitar CORS
 app.use(cors({
     origin: '*', 
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json()); // Para parsear JSON no corpo das requisições
+app.use(express.json());
 
 // Serve os arquivos estáticos do frontend.
-// '__dirname' é o diretório onde server.js está (backend-proxy)
-// '..' significa subir um nível para acessar a raiz do seu projeto
+const path = require('path'); // Certifique-se de que 'path' está importado
 app.use(express.static(path.join(__dirname, '..')));
 
-// --- NOVO ENDPOINT: Enviar Mensagem de Texto Simples ---
+// Endpoint para enviar mensagens de texto simples
 app.post('/send-simple-text', async (req, res) => {
-    const { phone, message } = req.body; // Supondo que o frontend envie 'phone' e 'message'
+    const { phone, message } = req.body;
 
+    console.log("--- ROTA /send-simple-text ---");
     console.log("Payload recebido do frontend (Texto Simples):", JSON.stringify(req.body, null, 2));
 
     const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
@@ -34,14 +33,11 @@ app.post('/send-simple-text', async (req, res) => {
         return res.status(500).json({ error: "Credenciais do Z-API não configuradas no servidor." });
     }
 
-    // Payload para o Z-API (Texto Simples)
     const zapiTextPayload = {
         phone: phone,
-        message: message // A Z-API espera o campo 'message' para texto
+        message: message
     };
 
-    // Endpoint para enviar texto simples (verificado na documentação Z-API)
-    // Exemplo: https://developer.z-api.io/message/send-text
     const zapiTextUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
 
     try {
@@ -62,12 +58,12 @@ app.post('/send-simple-text', async (req, res) => {
         });
     }
 });
-// --- FIM DO NOVO ENDPOINT ---
 
-
-// Endpoint para enviar mensagens de carrossel via Z-API
+// Endpoint para enviar mensagens carrossel
 app.post('/send-carousel-message', async (req, res) => {
-    const { phone, message, carousel, delayMessage } = req.body;
+    const { phone, carousel, message, delayMessage } = req.body; // Incluindo 'message' e 'delayMessage'
+
+    console.log("--- ROTA /send-carousel-message ---");
     console.log("Payload recebido do frontend (Carrossel):", JSON.stringify(req.body, null, 2));
     
     const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
@@ -78,36 +74,20 @@ app.post('/send-carousel-message', async (req, res) => {
         return res.status(500).json({ error: "Credenciais do Z-API não configuradas no servidor." });
     }
 
-    const elements = carousel.map(card => {
-        const buttons = card.buttons.map(btn => {
-            let buttonZapiFormat = { text: btn.label };
-
-            if (btn.type === 'URL') {
-                buttonZapiFormat.type = 'url';
-                buttonZapiFormat.url = btn.url;
-            } else if (btn.type === 'REPLY') {
-                buttonZapiFormat.type = 'reply';
-            } else if (btn.type === 'CALL') {
-                buttonZapiFormat.type = 'call';
-                buttonZapiFormat.phone = btn.phone;
-            }
-            return buttonZapiFormat;
-        });
-
-        return {
-            media: card.image,
-            text: card.text,
-            buttons: buttons
-        };
-    });
-
+    // --- CORREÇÃO CRÍTICA AQUI: PAYLOAD PARA Z-API ---
+    // Removida a lógica de remapeamento para 'elements'.
+    // Agora envia o payload do carrossel EXATAMENTE como o painel que funciona envia.
     const zapiPayload = {
         phone: phone,
-        elements: elements
+        message: message, // Adicionado de volta, conforme o painel que funciona
+        carousel: carousel, // Usando o array 'carousel' diretamente, conforme o painel que funciona
+        ...(delayMessage && { delayMessage: delayMessage }) // Adicionado de volta, se presente
     };
+    // --- FIM DA CORREÇÃO CRÍTICA ---
     
     console.log("Payload enviado para a Z-API (Carrossel):", JSON.stringify(zapiPayload, null, 2));
     
+    // A URL permanece a mesma (com token na URL)
     const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-carousel`; 
 
     try {
