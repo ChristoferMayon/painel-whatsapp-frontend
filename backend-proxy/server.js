@@ -1,118 +1,130 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios'); // Usando axios para consistência
+require('dotenv').config(); // Carrega variáveis do .env
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware para habilitar CORS
+// CORS liberado para todas as origens (ajuste se quiser restringir)
 app.use(cors({
-    origin: '*', 
+    origin: '*',
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 
-// Serve os arquivos estáticos do frontend.
-const path = require('path'); // Certifique-se de que 'path' está importado
-app.use(express.static(path.join(__dirname, '..')));
+// ====== VARIÁVEIS DO Z-API ======
+const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
+const ZAPI_ACCOUNT_SECURITY_TOKEN = process.env.ZAPI_ACCOUNT_SECURITY_TOKEN;
+const ZAPI_INSTANCE_PATH_TOKEN = process.env.ZAPI_INSTANCE_PATH_TOKEN;
 
-// Endpoint para enviar mensagens de texto simples
-app.post('/send-simple-text', async (req, res) => {
-    const { phone, message } = req.body;
+if (!ZAPI_INSTANCE_ID || !ZAPI_ACCOUNT_SECURITY_TOKEN || !ZAPI_INSTANCE_PATH_TOKEN) {
+    console.error("❌ Variáveis da Z-API não estão definidas corretamente. Verifique seu .env");
+}
 
-    console.log("--- ROTA /send-simple-text ---");
-    console.log("Payload recebido do frontend (Texto Simples):", JSON.stringify(req.body, null, 2));
-
-    const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-    const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
-    const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
-
-    if (!ZAPI_TOKEN || !ZAPI_CLIENT_TOKEN || !ZAPI_INSTANCE_ID) {
-        return res.status(500).json({ error: "Credenciais do Z-API não configuradas no servidor." });
-    }
-
-    const zapiTextPayload = {
-        phone: phone,
-        message: message
-    };
-
-    const zapiTextUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
-
+// ========== ROTA: MENSAGEM COM BOTÃO ==========
+app.post('/send-whatsapp-message', async (req, res) => {
     try {
-        const response = await axios.post(zapiTextUrl, zapiTextPayload, {
+        const { numero, mensagem, tituloBotao, linkBotao } = req.body;
+
+        if (!numero || !mensagem || !tituloBotao || !linkBotao) {
+            return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
+        }
+
+        const payload = {
+            phone: numero,
+            message: mensagem,
+            footer: "Unlock Apple",
+            buttonActions: [
+                {
+                    id: "1",
+                    type: "URL",
+                    url: linkBotao,
+                    label: tituloBotao
+                }
+            ]
+        };
+
+        const response = await fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-multi-carousel`, {
+            method: "POST",
             headers: {
-                'Client-Token': ZAPI_CLIENT_TOKEN,
-                'Content-Type': 'application/json'
-            }
+                "Content-Type": "application/json",
+                "Client-Token": ZAPI_ACCOUNT_SECURITY_TOKEN
+            },
+            body: JSON.stringify(payload)
         });
-        console.log("Payload enviado para a Z-API (Texto Simples):", JSON.stringify(zapiTextPayload, null, 2));
-        console.log("Resposta recebida da Z-API (Texto Simples - sucesso):", JSON.stringify(response.data, null, 2));
-        res.json(response.data);
+
+        const data = await response.json();
+        res.status(response.status).json(data);
     } catch (error) {
-        console.error('Erro ao enviar texto simples via Z-API:', error.response ? error.response.data : error.message);
-        res.status(error.response ? error.response.status : 500).json({
-            error: 'Erro ao enviar texto simples via Z-API',
-            details: error.response ? error.response.data : error.message
-        });
+        console.error("Erro ao enviar botão:", error);
+        res.status(500).json({ error: 'Erro interno', message: error.message });
     }
 });
 
-// Endpoint para enviar mensagens carrossel
+// ========== ROTA: MENSAGEM CARROSSEL ==========
 app.post('/send-carousel-message', async (req, res) => {
-    const { phone, carousel, message, delayMessage } = req.body; // Incluindo 'message' e 'delayMessage'
-
-    console.log("--- ROTA /send-carousel-message ---");
-    console.log("Payload recebido do frontend (Carrossel):", JSON.stringify(req.body, null, 2));
-    
-    const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-    const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
-    const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
-
-    if (!ZAPI_TOKEN || !ZAPI_CLIENT_TOKEN || !ZAPI_INSTANCE_ID) {
-        return res.status(500).json({ error: "Credenciais do Z-API não configuradas no servidor." });
-    }
-
-    // --- CORREÇÃO CRÍTICA AQUI: PAYLOAD PARA Z-API ---
-    // Removida a lógica de remapeamento para 'elements'.
-    // Agora envia o payload do carrossel EXATAMENTE como o painel que funciona envia.
-    const zapiPayload = {
-        phone: phone,
-        message: message, // Adicionado de volta, conforme o painel que funciona
-        carousel: carousel, // Usando o array 'carousel' diretamente, conforme o painel que funciona
-        ...(delayMessage && { delayMessage: delayMessage }) // Adicionado de volta, se presente
-    };
-    // --- FIM DA CORREÇÃO CRÍTICA ---
-    
-    console.log("Payload enviado para a Z-API (Carrossel):", JSON.stringify(zapiPayload, null, 2));
-    
-    // A URL permanece a mesma (com token na URL)
-    const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-carousel`; 
-
     try {
-        const response = await axios.post(zapiUrl, zapiPayload, {
+        const { phone, message, carousel, delayMessage } = req.body;
+
+        if (!phone || !message || !carousel || !Array.isArray(carousel) || carousel.length === 0) {
+            return res.status(400).json({ error: 'Campos obrigatórios faltando.' });
+        }
+
+        const payload = {
+            phone,
+            message,
+            carousel,
+            ...(delayMessage && { delayMessage })
+        };
+
+        const response = await fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_INSTANCE_PATH_TOKEN}/send-carousel`, {
+            method: "POST",
             headers: {
-                'Client-Token': ZAPI_CLIENT_TOKEN,
-                'Content-Type': 'application/json'
-            }
+                "Content-Type": "application/json",
+                "Client-Token": ZAPI_ACCOUNT_SECURITY_TOKEN
+            },
+            body: JSON.stringify(payload)
         });
-        console.log("Resposta recebida da Z-API (Carrossel - sucesso):", JSON.stringify(response.data, null, 2));
-        res.json(response.data);
+
+        const data = await response.json();
+        res.status(response.status).json(data);
     } catch (error) {
-        console.error('Erro ao enviar mensagem via Z-API (Carrossel):', error.response ? error.response.data : error.message);
-        res.status(error.response ? error.response.status : 500).json({
-            error: 'Erro ao enviar mensagem via Z-API (Carrossel)',
-            details: error.response ? error.response.data : error.message
-        });
+        console.error("Erro ao enviar carrossel:", error);
+        res.status(500).json({ error: 'Erro interno', message: error.message });
     }
 });
 
-// Para rotas não encontradas (SPA fallback)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'carousel_panel_stylish.html')); 
+// ========== ROTA: MENSAGEM TEXTO SIMPLES ==========
+app.post('/send-simple-text', async (req, res) => {
+    try {
+        const { phone, message } = req.body;
+
+        if (!phone || !message) {
+            return res.status(400).json({ error: 'Campos "phone" e "message" são obrigatórios.' });
+        }
+
+        const payload = { phone, message };
+
+        const response = await fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_INSTANCE_PATH_TOKEN}/send-text`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Client-Token": ZAPI_ACCOUNT_SECURITY_TOKEN
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (error) {
+        console.error("Erro ao enviar texto simples:", error);
+        res.status(500).json({ error: 'Erro interno', message: error.message });
+    }
 });
 
+// ========== INICIAR SERVIDOR ==========
 app.listen(port, () => {
-    console.log(`Proxy e frontend rodando na porta ${port}`);
+    console.log(`✅ Servidor iniciado na porta ${port}`);
 });
