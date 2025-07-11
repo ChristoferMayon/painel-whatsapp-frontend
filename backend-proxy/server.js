@@ -40,7 +40,7 @@ app.post('/send-carousel-message', async (req, res) => {
     };
 
     try {
-        const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-carousel`;
+        const zapiUrl = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-multi-carousel`;
 
         const response = await axios.post(zapiUrl, zapiPayload, {
             headers: {
