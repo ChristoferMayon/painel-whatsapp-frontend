@@ -1,18 +1,17 @@
 {
-  "name": "backend-proxy",
+  "name": "whatsapp-carousel-proxy",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Proxy para enviar mensagens de carrossel via Z-API.",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
+    "axios": "^1.7.2",  <-- ESTA LINHA É ESSENCIAL!
     "cors": "^2.8.5",
-    "dotenv": "^17.0.0",
-    "express": "^5.1.0",
-    "node-fetch": "^3.3.2"
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0" 
   }
 }
