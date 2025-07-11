@@ -1,6 +1,7 @@
 // ATENÇÃO: Esta URL precisa ser a URL REAL do seu proxy hospedado no Render.com.
 // SUBSTITUA 'URL_DO_SEU_PROXY_HOSPEDADO_AQUI' pela URL que o Render te deu (ex: 'https://painel-whatsapp-proxy-api.onrender.com')
-const proxyBaseUrl = 'https://painel-whatsapp-frontend.onrender.com'; 
+// No seu script.js do frontend:
+const proxyBaseUrl = window.location.origin; 
 const proxyCarouselUrl = `${proxyBaseUrl}/send-carousel-message`;
 
 const countriesDDI = [
