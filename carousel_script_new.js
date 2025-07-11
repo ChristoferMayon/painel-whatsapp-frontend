@@ -726,7 +726,9 @@ async function enviarCarrossel() {
         phone: numeroCompleto,
         carousel: carouselCards // 'carouselCards' é o array de cartões do frontend
     };
-
+// --- ADIÇÃO DE LOG NO FRONTEND ---
+    console.log("Payload enviado do frontend para o proxy:", JSON.stringify(payloadToProxy, null, 2));
+    // --- FIM DA ADIÇÃO DE LOG ---
     try {
         log.innerText = 'Enviando carrossel...';
         // A requisição é enviada para o seu próprio proxy (proxyCarouselUrl)
